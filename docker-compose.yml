@@ -1,0 +1,94 @@
+services:
+  queue-service-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: queue-service-api
+    env_file:
+      - .env
+    ports:
+      - ${APP_PORT}:${APP_PORT}
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - APP_ENV=${APP_ENV}
+      - APP_PORT=${APP_PORT}
+      - QUEUE_PROVIDERS=${QUEUE_PROVIDERS}
+      - QUEUE_PROVIDER=${QUEUE_PROVIDER}
+      # SQS Configuration (LocalStack)
+      - AWS_LOCALSTACK_PORT=${AWS_LOCALSTACK_PORT}
+      - AWS_REGION=${AWS_REGION}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_SQS_ENDPOINT=${AWS_SQS_ENDPOINT} 
+      # RabbitMQ Configuration
+      - RABBITMQ_URL=${RABBITMQ_URL}
+      - RABBITMQ_PORT=${RABBITMQ_PORT}
+      - RABBITMQ_MANAGEMENT_PORT=${RABBITMQ_MANAGEMENT_PORT} 
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+    depends_on:
+      localstack:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - queue-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/queue/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # LocalStack for AWS SQS emulation
+  localstack:
+    image: localstack/localstack:latest
+    container_name: queue-localstack
+    ports:
+      - "${AWS_LOCALSTACK_PORT}:${AWS_LOCALSTACK_PORT}"
+    environment:
+      - SERVICES=sqs
+      - DEBUG=${DEBUG:-0}
+      - DEFAULT_REGION=${AWS_REGION}
+    volumes:
+      - "./localstack-init:/etc/localstack/init/ready.d"
+      - "localstack-data:/var/lib/localstack"
+    networks:
+      - queue-network
+    healthcheck:
+      test: ["CMD", "awslocal", "sqs", "list-queues"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # RabbitMQ for RabbitMQ queue provider
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: queue-rabbitmq
+    ports:
+      - "${RABBITMQ_PORT}:${RABBITMQ_PORT}"
+      - "${RABBITMQ_MANAGEMENT_PORT}:${RABBITMQ_MANAGEMENT_PORT}"
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+    volumes:
+      - "rabbitmq-data:/var/lib/rabbitmq"
+    networks:
+      - queue-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+networks:
+  queue-network:
+    driver: bridge
+
+volumes:
+  localstack-data:
+  rabbitmq-data:
+    
