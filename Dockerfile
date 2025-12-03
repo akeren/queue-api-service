@@ -34,7 +34,7 @@ FROM base AS production
 
 ARG ENV=production
 ENV APP_ENV=${ENV}
-ENV APP_PORT=3000
+ENV APP_PORT=4000
 ENV APP_HOST=0.0.0.0
 
 WORKDIR /app
