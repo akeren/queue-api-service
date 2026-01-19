@@ -15,7 +15,7 @@ This is a NestJS API Service for publishing and subscribing to messages on multi
 
 ## Architecture
 
-<img src="./img/Architecture.png" />
+<img src="./img/System_Design.jpg" />
 
 ## Quick Start
 
